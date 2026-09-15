@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Setup and usage questions
+    url: https://github.com/TimoSchoenberger/passport-photo-printer/discussions
+    about: Ask for help in GitHub Discussions.
+  - name: Report a security vulnerability
+    url: https://github.com/TimoSchoenberger/passport-photo-printer/security/advisories/new
+    about: Report security issues privately; do not open a public issue.

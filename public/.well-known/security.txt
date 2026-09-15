@@ -1,0 +1,5 @@
+Contact: https://github.com/TimoSchoenberger/passport-photo-printer/security/advisories/new
+Policy: https://github.com/TimoSchoenberger/passport-photo-printer/security/policy
+Preferred-Languages: en, de
+Canonical: https://github.com/TimoSchoenberger/passport-photo-printer/raw/main/public/.well-known/security.txt
+Expires: 2027-09-15T00:00:00.000Z

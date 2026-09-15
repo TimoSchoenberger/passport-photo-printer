@@ -1,0 +1,22 @@
+services:
+  passport-photo-printer:
+    build: .
+    image: ghcr.io/timoschoenberger/passport-photo-printer:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8095}:3000"
+    environment:
+      IMMICH_URL: ${IMMICH_URL:-}
+      IMMICH_API_KEY: ${IMMICH_API_KEY:-}
+      IMMICH_PUBLIC_URL: ${IMMICH_PUBLIC_URL:-}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-20971520}
+      IMMICH_TIMEOUT_MS: ${IMMICH_TIMEOUT_MS:-45000}
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
