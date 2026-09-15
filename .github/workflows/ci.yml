@@ -39,6 +39,16 @@ jobs:
       - run: npm run build
       - name: Validate production container build
         run: docker build --tag passport-photo-printer:test .
+      - name: Start production container
+        run: docker run --detach --name passport-photo-printer-ci --publish 127.0.0.1:3000:3000 passport-photo-printer:test
+      - name: Verify container health endpoint
+        run: curl --fail --show-error --silent --retry 15 --retry-delay 1 --retry-connrefused http://127.0.0.1:3000/api/health
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs passport-photo-printer-ci
+      - name: Remove test container
+        if: always()
+        run: docker rm --force passport-photo-printer-ci || true
 
   dependency-review:
     name: Dependency review

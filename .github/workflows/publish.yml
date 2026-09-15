@@ -41,6 +41,18 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
+      - name: Build smoke-test image
+        run: docker build --tag passport-photo-printer:smoke .
+      - name: Start smoke-test container
+        run: docker run --detach --name passport-photo-printer-smoke --publish 127.0.0.1:3000:3000 passport-photo-printer:smoke
+      - name: Verify container health endpoint
+        run: curl --fail --show-error --silent --retry 15 --retry-delay 1 --retry-connrefused http://127.0.0.1:3000/api/health
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs passport-photo-printer-smoke
+      - name: Remove smoke-test container
+        if: always()
+        run: docker rm --force passport-photo-printer-smoke || true
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@594f3bf4285d9ea8dc53c9a0c9c4092420091003 # v4.4.0
       - name: Log in to GitHub Container Registry
