@@ -6,6 +6,7 @@ RUN npm ci
 COPY index.html vite.config.js svelte.config.js jsconfig.json ./
 COPY src ./src
 COPY public ./public
+COPY scripts/verify-pwa.mjs ./scripts/verify-pwa.mjs
 RUN npm run check && npm run build
 
 FROM node:24-alpine@sha256:50c8e8ca1d27439048670df5883f32d57cf81cff6233222c893fd0d9884cbd81 AS runtime
