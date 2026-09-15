@@ -151,9 +151,12 @@ Open `http://localhost:3000`. `npm start` also starts the production server and 
 
 Every push and pull request runs Svelte diagnostics, unit/server tests, a
 production build, and a Docker build. Pull requests also receive dependency
-review. A separate security workflow runs CodeQL, npm audit, Trivy source/image
-scans, and OpenSSF Scorecard on every change and weekly against newly disclosed
-issues. GitHub Actions are pinned to immutable commit hashes.
+review. The security workflow runs CodeQL, npm audit, and OpenSSF Scorecard. A
+dedicated Trivy workflow independently scans the repository and production
+container image for vulnerabilities, secrets, and misconfiguration on every
+change and weekly against newly disclosed issues. Both Trivy jobs publish SARIF
+results to GitHub code scanning and fail on fixable high or critical findings.
+GitHub Actions are pinned to immutable commit hashes.
 
 Dependabot checks npm, the Docker base image, and GitHub Actions weekly and
 opens grouped update pull requests. It was chosen over Renovate for this small

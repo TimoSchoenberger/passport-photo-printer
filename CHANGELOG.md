@@ -5,6 +5,10 @@ each release will be recorded here.
 
 ## [Unreleased]
 
+- Run Trivy filesystem and container checks in a dedicated workflow so failed
+  dependency installation cannot be misreported as a failed scanner run.
+- Publish separate filesystem and container SARIF reports using Trivy 0.74.0.
+
 ## [1.0.1] - 2026-09-15
 
 - Harden the static file server against request-path traversal.
