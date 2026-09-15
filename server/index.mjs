@@ -1,6 +1,5 @@
 import { createServer } from 'node:http';
-import { createReadStream, readFileSync } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { createReadStream, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -240,40 +239,52 @@ async function uploadToImmich(request, response, config) {
   });
 }
 
-async function serveStatic(request, response, pathname, distPath) {
+function indexStaticFiles(distPath) {
+  const files = new Map();
+  const visit = (directory, urlPrefix = '') => {
+    let entries;
+    try { entries = readdirSync(directory, { withFileTypes: true }); }
+    catch { return; }
+    for (const entry of entries) {
+      if (entry.isSymbolicLink()) continue;
+      const target = path.join(directory, entry.name);
+      const urlPath = `${urlPrefix}/${entry.name}`;
+      if (entry.isDirectory()) visit(target, urlPath);
+      else if (entry.isFile()) files.set(urlPath, { target, size: statSync(target).size });
+    }
+  };
+  visit(path.resolve(distPath));
+  return files;
+}
+
+async function serveStatic(request, response, pathname, files) {
   let decoded;
   try { decoded = decodeURIComponent(pathname); }
   catch { throw clientError('Invalid URL encoding.', 400); }
-  if (decoded.includes('\0') || decoded.includes('\\') || decoded.split('/').some((part) => part === '..' || part.startsWith('.'))) {
+  const isSecurityPolicy = decoded === '/.well-known/security.txt';
+  if (decoded.includes('\0') || decoded.includes('\\') || decoded.split('/').some((part) => part === '..' || (part.startsWith('.') && !isSecurityPolicy))) {
     throw clientError('Not found.', 404);
   }
-  const root = path.resolve(distPath);
-  let target = path.resolve(root, `.${decoded}`);
-  if (target !== root && !target.startsWith(`${root}${path.sep}`)) throw clientError('Not found.', 404);
-  let info;
-  try { info = await stat(target); } catch { /* Decide whether this is an SPA route below. */ }
-  if (info?.isDirectory()) {
-    target = path.join(target, 'index.html');
-    try { info = await stat(target); } catch { info = undefined; }
-  }
-  if (!info?.isFile()) {
+  const directoryIndex = `${decoded.endsWith('/') ? decoded : `${decoded}/`}index.html`;
+  let file = files.get(decoded) || files.get(directoryIndex);
+  if (!file) {
     if (decoded.startsWith('/assets/') || path.extname(decoded) || !request.headers.accept?.includes('text/html')) throw clientError('Not found.', 404);
-    target = path.join(root, 'index.html');
-    try { info = await stat(target); }
-    catch { throw clientError('The app has not been built. Run npm run build first.', 503); }
+    file = files.get('/index.html');
+    if (!file) throw clientError('The app has not been built. Run npm run build first.', 503);
   }
   response.writeHead(200, {
-    'Content-Type': mimeTypes[path.extname(target).toLowerCase()] || 'application/octet-stream',
-    'Content-Length': info.size,
+    'Content-Type': mimeTypes[path.extname(file.target).toLowerCase()] || 'application/octet-stream',
+    'Content-Length': file.size,
     'Cache-Control': decoded.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
   });
   if (request.method === 'HEAD') return response.end();
-  const stream = createReadStream(target);
+  const stream = createReadStream(file.target);
   stream.on('error', () => response.destroy());
   stream.pipe(response);
 }
 
 export function createAppServer({ config = readConfig(), distPath = path.join(projectRoot, 'dist') } = {}) {
+  const staticFiles = indexStaticFiles(distPath);
   return createServer({ requestTimeout: 120000, headersTimeout: 15000 }, async (request, response) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'same-origin');
@@ -299,7 +310,7 @@ export function createAppServer({ config = readConfig(), distPath = path.join(pr
         response.setHeader('Allow', 'GET, HEAD');
         throw clientError('Method not allowed.', 405);
       }
-      await serveStatic(request, response, pathname, distPath);
+      await serveStatic(request, response, pathname, staticFiles);
     } catch (error) {
       request.resume();
       if (!response.headersSent && !response.destroyed) {

@@ -21,8 +21,10 @@ async function fixture(t, extraEnv = {}) {
   const directory = await mkdtemp(path.join(tmpdir(), 'passport-printer-test-'));
   const distPath = path.join(directory, 'dist');
   await mkdir(path.join(distPath, 'assets'), { recursive: true });
+  await mkdir(path.join(distPath, '.well-known'), { recursive: true });
   await writeFile(path.join(distPath, 'index.html'), '<!doctype html><title>Passport Printer</title>');
   await writeFile(path.join(distPath, 'manifest.webmanifest'), '{"name":"Passport Photo Printer"}');
+  await writeFile(path.join(distPath, '.well-known', 'security.txt'), 'Contact: https://example.test/security');
   await writeFile(path.join(distPath, 'assets', 'app-test.js'), 'console.log("asset");');
   await writeFile(path.join(directory, 'secret.txt'), 'private fixture data');
   const uploads = [];
@@ -236,6 +238,9 @@ test('serves build assets with MIME/cache headers and limits SPA fallback to HTM
   const manifest = await fetch(`${app.base}/manifest.webmanifest`);
   assert.match(manifest.headers.get('content-type'), /application\/manifest\+json/);
   assert.match(manifest.headers.get('cache-control'), /no-cache/);
+  const securityPolicy = await fetch(`${app.base}/.well-known/security.txt`);
+  assert.match(securityPolicy.headers.get('content-type'), /text\/plain/);
+  assert.match(await securityPolicy.text(), /Contact:/);
   assert.match(await index.text(), /Passport Printer/);
   const asset = await fetch(`${app.base}/assets/app-test.js`);
   assert.match(asset.headers.get('content-type'), /javascript/);
