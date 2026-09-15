@@ -5,6 +5,13 @@ each release will be recorded here.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-15
+
+- Harden the static file server against request-path traversal.
+- Move the production image to a minimal, non-root distroless runtime.
+- Add container startup checks and a blocking high/critical vulnerability gate before publishing.
+- Restrict registry and attestation permissions to the publish job.
+
 ## [1.0.0] - 2026-09-15
 
 - Initial public release.
@@ -13,5 +20,6 @@ each release will be recorded here.
 - Optional Immich upload with format tags.
 - Installable progressive web app and Docker deployment.
 
-[Unreleased]: https://github.com/TimoSchoenberger/passport-photo-printer/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/TimoSchoenberger/passport-photo-printer/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/TimoSchoenberger/passport-photo-printer/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/TimoSchoenberger/passport-photo-printer/releases/tag/v1.0.0

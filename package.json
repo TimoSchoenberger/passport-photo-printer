@@ -1,6 +1,6 @@
 {
   "name": "passport-photo-printer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A self-hosted passport photo crop and print-sheet tool with optional Immich upload.",
   "license": "MIT",
   "author": "Timo Schönberger",
