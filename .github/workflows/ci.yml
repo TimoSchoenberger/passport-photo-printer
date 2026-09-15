@@ -42,7 +42,7 @@ jobs:
       - name: Start production container
         run: docker run --detach --name passport-photo-printer-ci --publish 127.0.0.1:3000:3000 passport-photo-printer:test
       - name: Verify container health endpoint
-        run: curl --fail --show-error --silent --retry 15 --retry-delay 1 --retry-connrefused http://127.0.0.1:3000/api/health
+        run: curl --fail --show-error --silent --retry 15 --retry-delay 1 --retry-all-errors http://127.0.0.1:3000/api/health
       - name: Show container logs on failure
         if: failure()
         run: docker logs passport-photo-printer-ci
