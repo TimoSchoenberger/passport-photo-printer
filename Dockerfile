@@ -9,7 +9,7 @@ COPY public ./public
 COPY scripts/verify-pwa.mjs ./scripts/verify-pwa.mjs
 RUN npm run check && npm run build
 
-FROM gcr.io/distroless/nodejs24-debian12:nonroot@sha256:14d42e2511532589a7c7e01a753667a74fcc96266e137e8125006b87b0c32d0a AS runtime
+FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:bb6b03d81066993293a10feda7250e8e1cc034035fe9b61cfceededa7c8bf04d AS runtime
 LABEL org.opencontainers.image.source="https://github.com/TimoSchoenberger/passport-photo-printer" \
       org.opencontainers.image.description="Self-hosted passport photo crop and print-sheet tool" \
       org.opencontainers.image.licenses="MIT"
