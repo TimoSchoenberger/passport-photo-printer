@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@fontsource-variable/overpass": "^5.3.0",
-    "cropperjs": "1.6.2",
+    "cropperjs": "2.2.0",
     "heic-to": "^1.5.2",
     "jspdf": "^4.2.0"
   },
