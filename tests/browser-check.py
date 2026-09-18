@@ -44,7 +44,7 @@ def upload_info():
 
 
 with sync_playwright() as p:
-    launch = {'headless': True}
+    launch = {'headless': True, 'args': ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']}
     if os.name == 'nt':
         launch['channel'] = 'msedge'
     browser = p.chromium.launch(**launch)
@@ -66,6 +66,40 @@ with sync_playwright() as p:
     page.screenshot(path=str(OUT / 'empty-desktop.png'), full_page=True)
     expect(page.get_by_role('button', name='Download JPEG')).to_be_disabled()
     expect(page.get_by_role('button', name='Immich connection settings')).to_be_visible()
+    page.get_by_role('button', name='Take photo').click()
+    camera = page.get_by_role('dialog', name='Take a photo')
+    expect(camera).to_be_visible()
+    shutter = camera.get_by_role('button', name='Take photo')
+    expect(shutter).to_be_enabled(timeout=15000)
+    camera.get_by_label('Passport guide').check()
+    expect(camera.locator('.passport-guide')).to_be_visible()
+    page.screenshot(path=str(OUT / 'camera-desktop.png'), full_page=True)
+    shutter.click()
+    expect(camera).not_to_be_visible()
+    expect(page.get_by_role('button', name='Download JPEG')).to_be_enabled(timeout=15000)
+    expect(page.locator('.file-meta')).to_contain_text('camera-')
+    page.get_by_role('button', name='Take photo').click()
+    expect(camera.get_by_role('button', name='Take photo')).to_be_enabled(timeout=15000)
+    page.evaluate("window.__cameraTrack = document.querySelector('.camera-dialog video').srcObject.getVideoTracks()[0]")
+    camera.get_by_role('button', name='Close camera').click()
+    expect(camera).not_to_be_visible()
+    assert page.evaluate("window.__cameraTrack.readyState") == 'ended', 'Camera track still active after closing'
+    heic = ROOT / 'tests' / 'fixtures' / 'portrait.heic'
+    page.get_by_label('Choose photo', exact=True).set_input_files(str(heic))
+    expect(page.locator('.file-meta')).to_contain_text('portrait.heic', timeout=60000)
+    expect(page.get_by_role('button', name='Download JPEG')).to_be_enabled(timeout=15000)
+    assert page.locator('.crop-viewport > img').evaluate('(image) => image.naturalWidth') == 96
+    larger_heic = OUT / 'example.heic'
+    last_heic_name = 'portrait.heic'
+    if larger_heic.exists():
+        page.get_by_label('Choose photo', exact=True).set_input_files(str(larger_heic))
+        expect(page.locator('.file-meta')).to_contain_text('example.heic', timeout=60000)
+        expect(page.get_by_role('button', name='Download JPEG')).to_be_enabled(timeout=15000)
+        last_heic_name = 'example.heic'
+    page.get_by_label('Choose photo', exact=True).set_input_files({'name':'broken.heic','mimeType':'image/heic','buffer':b'not a heic file'})
+    expect(page.get_by_role('alert')).to_contain_text('could not be opened', timeout=15000)
+    expect(page.locator('.file-meta')).to_contain_text(last_heic_name)
+    page.get_by_role('button', name='Dismiss message').click()
     source = fixture()
     # Exercise actual drag and drop, not only the file picker.
     encoded = base64.b64encode(source.read_bytes()).decode()
@@ -79,7 +113,8 @@ with sync_playwright() as p:
     preview = page.locator('.paper > img')
     expect(preview).to_have_attribute('alt', 'Print preview: 8 copies at 35 by 45 millimeters on 150 by 100 millimeter paper')
     guide_switch = page.get_by_role('switch', name='Passport guide')
-    expect(guide_switch).not_to_be_checked()
+    expect(guide_switch).to_be_checked()  # Camera and crop use the same guide preference.
+    guide_switch.uncheck()
     clean_preview = preview.get_attribute('src')
     guide_switch.check()
     guide = page.locator('.passport-guide')
@@ -196,6 +231,16 @@ with sync_playwright() as p:
     guide_bounds = guide.bounding_box()
     for key in ['x', 'y', 'width', 'height']:
         assert abs(crop_bounds[key] - guide_bounds[key]) < 1.1, (key, crop_bounds, guide_bounds)
+    page.get_by_role('button', name='Take photo').click()
+    mobile_camera = page.get_by_role('dialog', name='Take a photo')
+    expect(mobile_camera.get_by_role('button', name='Take photo')).to_be_enabled(timeout=15000)
+    expect(mobile_camera.locator('.passport-guide')).to_be_visible()
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Mobile camera overflow'
+    page.screenshot(path=str(OUT / 'camera-mobile.png'), full_page=True)
+    page.evaluate("window.__cameraTrack = document.querySelector('.camera-dialog video').srcObject.getVideoTracks()[0]")
+    page.keyboard.press('Escape')
+    expect(mobile_camera).not_to_be_visible()
+    page.wait_for_function("() => window.__cameraTrack.readyState === 'ended'", timeout=5000)
     select_styles = page.locator('select').evaluate_all('(els)=>els.map(el=>({appearance:getComputedStyle(el).appearance,background:getComputedStyle(el).backgroundImage,position:getComputedStyle(el).backgroundPosition,padding:getComputedStyle(el).paddingRight}))')
     assert all(s['appearance'] == 'none' and s['background'] != 'none' and '14px' in s['position'] and s['padding'] == '40px' for s in select_styles), select_styles
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Mobile overflow'
@@ -209,5 +254,5 @@ with sync_playwright() as p:
     page.screenshot(path=str(OUT / 'editor-desktop.png'), full_page=True)
     assert not errors, errors
     assert all(url.startswith(('http://127.0.0.1:', 'blob:', 'data:')) for url in requests), requests
-    print('PASS: crop, passport guide and clean exports, automatic capacity, formats, responsive crop preservation, aligned selects, JPEG300dpi/PDF, Immich tags and partial-failure warnings; no page errors or external requests.')
+    print('PASS: camera capture/cleanup, shared guide, HEIC decode/errors, crop and clean exports, automatic capacity, formats, responsive layout, JPEG300dpi/PDF, Immich tags and partial-failure warnings; no page errors or external requests.')
     browser.close()

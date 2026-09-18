@@ -233,7 +233,7 @@ test('serves build assets with MIME/cache headers and limits SPA fallback to HTM
   assert.equal(index.status, 200);
   assert.match(index.headers.get('content-type'), /text\/html/);
   assert.match(index.headers.get('content-security-policy'), /default-src 'self'/);
-  assert.equal(index.headers.get('permissions-policy'), 'camera=(), geolocation=(), microphone=(), payment=(), usb=()');
+  assert.equal(index.headers.get('permissions-policy'), 'camera=(self), geolocation=(), microphone=(), payment=(), usb=()');
   assert.equal(index.headers.get('cross-origin-opener-policy'), 'same-origin');
   const manifest = await fetch(`${app.base}/manifest.webmanifest`);
   assert.match(manifest.headers.get('content-type'), /application\/manifest\+json/);

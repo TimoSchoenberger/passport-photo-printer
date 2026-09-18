@@ -1,10 +1,14 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import Icon from './lib/Icon.svelte';
   import CropEditor from './lib/CropEditor.svelte';
+  import CameraCapture from './lib/CameraCapture.svelte';
   import { calculateLayout, renderSheet, canvasToJpeg, downloadBlob, downloadPdf } from './lib/print.js';
 
   let fileInput;
+  let cameraDialog;
+  let cameraOpen = false;
+  let cameraSupported = false;
   let sourceUrl = '';
   let sourceName = '';
   let originalWidth = 0;
@@ -62,6 +66,7 @@
 
   onMount(() => {
     loadConfig();
+    cameraSupported = Boolean(navigator.mediaDevices?.getUserMedia);
     return () => {
       if (sourceUrl) URL.revokeObjectURL(sourceUrl);
       cancelAnimationFrame(previewFrame);
@@ -85,6 +90,28 @@
     noticeKind = kind;
   }
 
+  function withTimeout(promise, milliseconds, message) {
+    let timer;
+    return Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), milliseconds); })])
+      .finally(() => clearTimeout(timer));
+  }
+
+  async function openCamera() {
+    cameraOpen = true;
+    await tick();
+    cameraDialog.showModal();
+  }
+
+  function closeCamera() {
+    cameraDialog?.close();
+    cameraOpen = false;
+  }
+
+  function capturedPhoto(file) {
+    closeCamera();
+    loadFile(file);
+  }
+
   async function loadFile(file) {
     if (!file) return;
     notice = '';
@@ -106,14 +133,13 @@
       let imageFile = file;
       if (isHeic) {
         loadMessage = 'Converting HEIC on your device…';
-        const { default: heic2any } = await import('heic2any');
-        const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.95 });
-        imageFile = Array.isArray(converted) ? converted[0] : converted;
+        const { heicTo } = await withTimeout(import('heic-to/csp'), 15000, 'HEIC converter timed out');
+        imageFile = await withTimeout(heicTo({ blob: file, type: 'image/jpeg', quality: 0.95 }), 45000, 'HEIC conversion timed out');
       }
       newUrl = URL.createObjectURL(imageFile);
       const image = new Image();
       image.src = newUrl;
-      await image.decode();
+      await withTimeout(image.decode(), 15000, 'Image decode timed out');
       if (version !== fileVersion) { URL.revokeObjectURL(newUrl); return; }
       if (!image.naturalWidth || !image.naturalHeight) throw new Error('Invalid image size');
       if (image.naturalWidth * image.naturalHeight > 100_000_000) throw new Error('Photo exceeds 100 megapixels');
@@ -125,7 +151,7 @@
       originalHeight = image.naturalHeight;
     } catch (error) {
       if (newUrl) URL.revokeObjectURL(newUrl);
-      if (version === fileVersion) flash(error.message === 'Photo exceeds 100 megapixels' ? 'This photo exceeds 100 megapixels. Export a smaller copy first.' : 'This image could not be opened. Try exporting it as JPEG or PNG first.', 'error');
+      if (version === fileVersion) flash(error.message === 'Photo exceeds 100 megapixels' ? 'This photo exceeds 100 megapixels. Export a smaller copy first.' : error.message?.includes('timed out') ? 'This photo took too long to open. Try a smaller file or export it as JPEG first.' : 'This image could not be opened. Try exporting it as JPEG or PNG first.', 'error');
     } finally {
       if (version === fileVersion) loading = false;
       if (fileInput) fileInput.value = '';
@@ -268,20 +294,20 @@
 
     <div class="workspace">
       <section class="editor-panel" aria-labelledby="photo-heading">
-        <div class="section-heading"><h2 id="photo-heading"><Icon name="crop" size={19} /> Photo</h2>{#if sourceUrl}<button class="text-button" onclick={() => fileInput.click()} disabled={loading}>Change photo</button>{/if}</div>
+        <div class="section-heading"><h2 id="photo-heading"><Icon name="crop" size={19} /> Photo</h2>{#if sourceUrl}<div class="photo-heading-actions"><button class="text-button" onclick={() => fileInput.click()} disabled={loading}>Change photo</button>{#if cameraSupported}<button class="text-button camera-text-button" onclick={openCamera} disabled={loading}><Icon name="camera" size={16} /> Take photo</button>{/if}</div>{/if}</div>
         <input class="visually-hidden" bind:this={fileInput} type="file" id="photo-file" accept="image/*,.heic,.heif" onchange={(event) => loadFile(event.currentTarget.files?.[0])} aria-label="Choose photo" />
 
         <div class="editor-stage" class:has-photo={sourceUrl} aria-busy={loading}>
           {#if sourceUrl}
             {#key sourceUrl}<CropEditor src={sourceUrl} {aspectRatio} {showGuide} onCropChange={(value) => crop = value} onCropPending={(value) => cropPending = value} />{/key}
           {:else}
-            <button class="drop-zone" onclick={() => fileInput.click()} disabled={loading}>
+            <div class="drop-zone">
               <span class="drop-illustration"><Icon name="image" size={48} /><span class="upload-badge"><Icon name="upload" size={20}/></span></span>
               <span class="drop-title">Drop a photo here</span>
               <span class="drop-subtitle">or choose a file from your device</span>
-              <span class="choose-file">Choose photo</span>
+              <div class="source-actions"><button class="choose-file" onclick={() => fileInput.click()} disabled={loading}>Choose photo</button>{#if cameraSupported}<button class="take-photo-button" onclick={openCamera} disabled={loading}><Icon name="camera" size={17} /> Take photo</button>{/if}</div>
               <span class="format-note">JPEG, PNG, WebP, AVIF, HEIC and more</span>
-            </button>
+            </div>
           {/if}
           {#if loading}<div class="loading-overlay" role="status"><span class="spinner"></span>{loadMessage}</div>{/if}
         </div>
@@ -347,6 +373,10 @@ IMMICH_PUBLIC_URL=https://photos.example.com</pre><p>Create a key in Immich’s 
   {#if configError}<p class="layout-error">{configError}</p>{/if}
   <p class="dialog-note"><Icon name="shield" size={18}/> The API key stays on the server. Cropping and downloads happen on your device.</p>
   <div class="dialog-actions"><button class="secondary-button" onclick={loadConfig}>Refresh connection</button><button class="primary-button" onclick={() => settingsDialog.close()}>Done</button></div>
+</dialog>
+
+<dialog bind:this={cameraDialog} class="camera-dialog" aria-labelledby="camera-title" onclose={() => cameraOpen = false}>
+  {#if cameraOpen}<CameraCapture {aspectRatio} {showGuide} onToggleGuide={(value) => showGuide = value} onCapture={capturedPhoto} onClose={closeCamera} />{/if}
 </dialog>
 
 {#if sheetUrl}<div class="print-only" style={`width:${paperWidth}mm;height:${paperHeight}mm`}><img src={sheetUrl} alt="Printable sheet"/></div>{/if}

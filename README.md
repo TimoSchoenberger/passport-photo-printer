@@ -9,9 +9,11 @@ A small Svelte application for manually cropping a photo and arranging identical
 
 Photos are processed in your browser. A small Node server serves the built application and handles the **Save to Immich** button, keeping the Immich API key off the browser. No database, paid service, or runtime npm dependencies are needed.
 
-The editor supports preset or custom photo dimensions, adjustable copies, spacing and margins, optional cutting marks, and 10 × 15 cm, 4 × 6 inch, or A4 paper. Export a 300 DPI JPEG, download a PDF with physical page dimensions, or print directly. Common browser image formats work, and HEIC conversion happens locally; if a particular HEIC file cannot be decoded, export it from Immich as JPEG first.
+The editor supports preset or custom photo dimensions, adjustable copies, spacing and margins, optional cutting marks, and 10 × 15 cm, 4 × 6 inch, or A4 paper. Export a 300 DPI JPEG, download a PDF with physical page dimensions, or print directly. Common browser image formats work, and HEIC/HEIF conversion happens locally with a CSP-compatible decoder; if a particular file cannot be decoded, export it from Immich as JPEG first. A stalled conversion now ends with an error instead of showing an endless loading state.
 
 Turn on **Passport guide** for a combined minimum/maximum head outline, eye area, and centerline over the crop. It is a visual positioning aid based on a 35 × 45 mm template, not a compliance check; other aspect ratios stretch the guide. It never appears in the print preview, downloaded files, or Immich uploads.
+
+Use **Take photo** on a device with a camera to capture directly into the same crop-and-print workflow. The camera preview can show the very same passport guide; changing its toggle also changes the crop editor's toggle. The guide is never burned into the captured photo. The camera opens only after you press the button, and its stream stops when you close the view or capture a photo. If camera access is blocked, choose an existing photo instead.
 
 When the requested copies do not fit, the count automatically decreases to the largest supported grid that fits the selected paper, photo dimensions, spacing, and margins. It does not increase again automatically. If even one photo cannot fit, the app explains the layout problem instead of creating a blank sheet.
 
@@ -50,7 +52,7 @@ the browser menu. It opens like a standalone app and keeps its application
 shell available offline; photo processing still happens only on your device.
 Saving to Immich naturally requires a connection to this server and Immich.
 
-Browsers require a secure context for installation and service workers. Serve
+Browsers require a secure context for installation, service workers, and camera access. Serve
 the app over HTTPS on phones (for example through your existing reverse proxy
 with a trusted certificate). Plain HTTP generally works for normal browsing on
 your LAN, but not for reliable PWA installation. After an update, the app shell
@@ -150,7 +152,7 @@ Open `http://localhost:3000`. `npm start` also starts the production server and 
 ## Verification and releases
 
 Every push and pull request runs Svelte diagnostics, unit/server tests, a
-production build, and a Docker build. Pull requests also receive dependency
+production build, browser integration checks (including HEIC and simulated camera capture), and a Docker build. Pull requests also receive dependency
 review. The security workflow runs CodeQL, npm audit, and OpenSSF Scorecard. A
 dedicated Trivy workflow independently scans the repository and production
 container image for vulnerabilities, secrets, and misconfiguration on every
@@ -178,6 +180,8 @@ Do not disclose vulnerabilities in public issues. Follow
 [SECURITY.md](SECURITY.md) to send a private report. This project is licensed
 under the [MIT License](LICENSE). Production builds include the bundled
 dependencies' license texts at `/third-party-licenses.txt`.
+The app itself is MIT-licensed; bundled libraries retain their own licenses,
+including the HEIC decoder's LGPL-3.0 license.
 
 ## Configuration
 
