@@ -75,7 +75,7 @@ with sync_playwright() as p:
     expect(camera.locator('.passport-guide')).to_be_visible()
     page.screenshot(path=str(OUT / 'camera-desktop.png'), full_page=True)
     shutter.click()
-    expect(camera).not_to_be_visible()
+    expect(camera).not_to_be_visible(timeout=20000)
     expect(page.get_by_role('button', name='Download JPEG')).to_be_enabled(timeout=15000)
     expect(page.locator('.file-meta')).to_contain_text('camera-')
     page.get_by_role('button', name='Take photo').click()

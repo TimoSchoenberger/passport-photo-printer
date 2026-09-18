@@ -79,7 +79,15 @@
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       canvas.getContext('2d').drawImage(video, 0, 0);
-      const blob = await new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error('No photo was captured')), 'image/jpeg', 0.95));
+      let timer;
+      const blob = await Promise.race([
+        new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error('No photo was captured')), 'image/jpeg', 0.95)),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Camera encoding timed out')), 10000); }),
+      ]).catch(() => {
+        // Some browser camera drivers never complete canvas.toBlob; the sync encoder is a fallback.
+        const data = canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
+        return new Blob([Uint8Array.from(atob(data), (char) => char.charCodeAt(0))], { type: 'image/jpeg' });
+      }).finally(() => clearTimeout(timer));
       const stamp = new Date().toISOString().replace(/[:.]/g, '-');
       onCapture(new File([blob], `camera-${stamp}.jpg`, { type: 'image/jpeg' }));
     } catch {
