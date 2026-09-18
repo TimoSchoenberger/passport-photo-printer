@@ -29,8 +29,20 @@ npm run build
 docker build -t passport-photo-printer:test .
 ```
 
-The browser integration check is documented in the README and requires
-Playwright plus a Chromium-based browser.
+The browser integration check uses an original, generated HEIC fixture and a
+simulated camera. On Linux, install its Python dependencies and Chromium, then
+run it against the freshly built app:
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r tests/requirements-browser.txt
+.venv/bin/python -m playwright install chromium
+.venv/bin/python tests/run-browser-check.py
+```
+
+On Windows, the test uses installed Microsoft Edge instead of downloaded
+Chromium. The fixture can be regenerated with
+`python tests/create-heic-fixture.py` after installing `pillow-heif`.
 
 ## Pull requests
 
